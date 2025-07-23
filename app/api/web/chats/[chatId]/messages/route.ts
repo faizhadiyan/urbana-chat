@@ -1,159 +1,155 @@
 import { NextResponse } from 'next/server';
-import { NextRequest } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
 
-// In-memory storage for messages (replace with database in production)
-let messages: any[] = [];
+// In-memory storage for messages
+const messages: Record<string, any[]> = {};
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { chatId: string } }
-) {
-  const userId = request.headers.get('x-user-id');
-  const { chatId } = params;
+export async function GET(request: Request, { params }: { params: { chatId: string } }) {
+  try {
+    const userId = request.headers.get('x-user-id');
+    const { chatId } = params;
 
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'User ID is required',
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Return messages for this chat
+    return NextResponse.json({
+      success: true,
+      messages: messages[chatId] || [],
+    });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to fetch messages',
+      },
+      {
+        status: 500,
+      }
+    );
   }
-
-  if (!chatId) {
-    return NextResponse.json({ error: 'Chat ID is required' }, { status: 400 });
-  }
-
-  // Filter messages for this chat
-  const chatMessages = messages.filter((message) => message.chatId === chatId);
-
-  return NextResponse.json({ 
-    success: true, 
-    messages: chatMessages.map(msg => ({
-      ...msg,
-      timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
-      status: msg.status || 'delivered'
-    }))
-  });
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { chatId: string } }
-) {
-  const userId = request.headers.get('x-user-id');
-  const { chatId } = params;
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
-  if (!chatId) {
-    return NextResponse.json({ error: 'Chat ID is required' }, { status: 400 });
-  }
-
+export async function POST(request: Request, { params }: { params: { chatId: string } }) {
   try {
-    // Check if it's a FormData request (file upload)
-    const contentType = request.headers.get('content-type');
-    let content = '';
-    let fileName = '';
-    let fileUrl = '';
-    let messageType = 'text';
+    const userId = request.headers.get('x-user-id');
+    const { chatId } = params;
 
-    if (contentType?.includes('multipart/form-data')) {
-      const formData = await request.formData();
-      content = formData.get('content') as string || '';
-      const file = formData.get('file') as File;
-      
-      if (file) {
-        fileName = file.name;
-        // In production, you'd upload to a file storage service
-        // For now, we'll just create a mock URL
-        fileUrl = `/uploads/${Date.now()}-${fileName}`;
-        messageType = file.type.startsWith('image/') ? 'image' : 'file';
-      }
-    } else {
-      const body = await request.json();
-      content = body.content || '';
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'User ID is required',
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const body = await request.json();
+    const { content } = body;
+
+    if (!content) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Message content is required',
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Initialize messages array for this chat if it doesn't exist
+    if (!messages[chatId]) {
+      messages[chatId] = [];
     }
 
     // Create new message
     const newMessage = {
-      id: Math.random().toString(36).substring(7),
-      chatId,
+      id: uuidv4(),
       content,
       isFromAgent: false,
       timestamp: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      status: 'sent',
-      type: messageType,
-      fileName,
-      fileUrl,
-      userId
     };
 
-    messages.push(newMessage);
+    // Add message to chat
+    messages[chatId].push(newMessage);
 
-    // Simulate AI response after a delay
-    setTimeout(() => {
-      const aiResponse = {
-        id: Math.random().toString(36).substring(7),
-        chatId,
-        content: generateAIResponse(content),
-        isFromAgent: true,
-        timestamp: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        status: 'delivered',
-        type: 'text',
-        userId: 'ai'
-      };
-      
-      messages.push(aiResponse);
-    }, 1000 + Math.random() * 2000); // Random delay between 1-3 seconds
+    // Create agent response immediately
+    const agentMessage = {
+      id: uuidv4(),
+      content: generateAgentResponse(content),
+      isFromAgent: true,
+      timestamp: new Date().toISOString(),
+    };
+    messages[chatId].push(agentMessage);
 
-    return NextResponse.json({ success: true, message: newMessage });
+    // Log for debugging
+    console.log('Messages after update:', messages[chatId]);
+
+    return NextResponse.json({
+      success: true,
+      messages: [newMessage, agentMessage],
+    });
   } catch (error) {
-    console.error('Error creating message:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to create message' 
-    }, { status: 500 });
+    console.error('Error processing message:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to process message',
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }
 
-// Simple AI response generator
-function generateAIResponse(userMessage: string): string {
-  const responses = [
-    "That's interesting! Tell me more about that.",
-    "I understand what you're saying. How can I help you with that?",
-    "Great question! Let me think about that for a moment.",
-    "I appreciate you sharing that with me. What would you like to know?",
-    "That's a good point. I'd be happy to help you explore that further.",
-    "I see what you mean. Let's work on that together.",
-    "Thanks for bringing that up. What specific aspect would you like to discuss?",
-    "I'm here to help! What would you like to focus on next?",
-    "That's a thoughtful question. Let me provide some insights on that.",
-    "I'm glad you asked! Here's what I think about that..."
-  ];
-  
-  // Simple keyword-based responses
+function generateAgentResponse(userMessage: string): string {
+  const greetings = ['hello', 'hi', 'hey', 'halo', 'hai'];
   const lowerMessage = userMessage.toLowerCase();
-  
-  if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-    return "Hello! Welcome to Urbana Chat. How can I assist you today?";
+
+  // Check for greetings
+  if (greetings.some((greeting) => lowerMessage.includes(greeting))) {
+    return 'Hi there! How can I help you today? 👋';
   }
-  
-  if (lowerMessage.includes('help')) {
-    return "I'm here to help! What can I do for you?";
+
+  // Check for questions
+  if (lowerMessage.includes('?')) {
+    return "That's an interesting question. Let me help you with that.";
   }
-  
-  if (lowerMessage.includes('name')) {
-    return "I'm Andy, your friendly chat assistant. What's your name?";
-  }
-  
+
+  // Check for gratitude
   if (lowerMessage.includes('thank')) {
-    return "You're very welcome! Is there anything else I can help you with?";
+    return "You're welcome! Is there anything else you'd like to know? 😊";
   }
-  
+
+  // Check for goodbyes
   if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
-    return "Goodbye! Feel free to come back anytime you need assistance.";
+    return 'Goodbye! Feel free to come back if you have more questions! 👋';
   }
-  
-  // Return a random response
+
+  // Default responses for other messages
+  const responses = [
+    'I understand. Tell me more about that.',
+    "That's interesting! What are your thoughts on this?",
+    'I see. How can I help you further with this?',
+    'Thanks for sharing. Would you like to explore this topic more?',
+    "I appreciate your perspective. Let's discuss this further.",
+  ];
+
   return responses[Math.floor(Math.random() * responses.length)];
 }

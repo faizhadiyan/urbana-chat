@@ -1,4 +1,4 @@
 {
-  "/api/web/chats/route": "app/api/web/chats/route.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/api/web/chats/route": "app/api/web/chats/route.js"
 }
