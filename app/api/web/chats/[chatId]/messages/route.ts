@@ -7,7 +7,7 @@ const messages: Record<string, any[]> = {};
 export async function GET(request: Request, { params }: { params: { chatId: string } }) {
   try {
     const userId = request.headers.get('x-user-id');
-    const { chatId } = params;
+    const { chatId } = await params;
 
     if (!userId) {
       return NextResponse.json(
@@ -21,6 +21,8 @@ export async function GET(request: Request, { params }: { params: { chatId: stri
       );
     }
 
+    console.log('Fetching messages for chat:', chatId, 'user:', userId);
+    
     // Return messages for this chat
     return NextResponse.json({
       success: true,
@@ -43,7 +45,7 @@ export async function GET(request: Request, { params }: { params: { chatId: stri
 export async function POST(request: Request, { params }: { params: { chatId: string } }) {
   try {
     const userId = request.headers.get('x-user-id');
-    const { chatId } = params;
+    const { chatId } = await params;
 
     if (!userId) {
       return NextResponse.json(

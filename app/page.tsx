@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-const API_BASE = '/api';
+// Use urbana-ai backend API
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 interface Chat {
   id: string;
@@ -87,6 +88,7 @@ export default function Home() {
       
       const data = await res.json();
       if (data.success) {
+        console.log('Fetched messages:', data.messages); // Debug log
         setMessages(data.messages || []);
       }
     } catch (err) {
@@ -154,6 +156,49 @@ export default function Home() {
       if (data.success) {
         setMessages(prev => [...prev, ...data.messages]);
         setError(null);
+        
+        // Smart polling for AI response
+        const currentMessageCount = messages.length + data.messages.length;
+        let pollCount = 0;
+        const maxPolls = 15; // Poll for up to 15 seconds
+        
+        const pollForResponse = async () => {
+          if (pollCount >= maxPolls) {
+            console.log('Stopped polling - max attempts reached');
+            return;
+          }
+          
+          pollCount++;
+          console.log(`Polling for AI response (attempt ${pollCount})...`);
+          
+          try {
+            const res = await fetch(`${API_BASE}/web/chats/${selectedChatId}/messages`, {
+              headers: { 'x-user-id': userId }
+            });
+            
+            if (res.ok) {
+              const pollData = await res.json();
+              if (pollData.success && pollData.messages) {
+                console.log('Poll result:', pollData.messages.length, 'messages');
+                
+                // If we got more messages than before, update and stop polling
+                if (pollData.messages.length > currentMessageCount) {
+                  console.log('New AI response detected! Updating messages...');
+                  setMessages(pollData.messages);
+                  return; // Stop polling
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Polling error:', error);
+          }
+          
+          // Continue polling after 1 second
+          setTimeout(pollForResponse, 1000);
+        };
+        
+        // Start polling after 2 seconds
+        setTimeout(pollForResponse, 2000);
       }
     } catch (err) {
       console.error('Error sending message:', err);
