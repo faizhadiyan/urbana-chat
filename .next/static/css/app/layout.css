@@ -526,3 +526,184 @@ body {
     display: none;
   }
 }
+
+/* Delete and Selection Functionality */
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.select-button {
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1 1;
+}
+
+.select-button:hover {
+  background: #484c52;
+}
+
+.select-button.active {
+  background: #5865f2;
+  color: white;
+}
+
+.selection-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #202225;
+}
+
+.select-all-button {
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1 1;
+}
+
+.select-all-button:hover {
+  background: #484c52;
+}
+
+.delete-button {
+  background: #ed4245;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-button:hover {
+  background: #c73c3f;
+}
+
+.delete-button:disabled {
+  background: #72767d;
+  cursor: not-allowed;
+}
+
+.chat-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.chat-item-wrapper.selection-mode {
+  padding: 0 12px;
+}
+
+.chat-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #5865f2;
+}
+
+.chat-item.selected {
+  background: rgba(88, 101, 242, 0.1);
+  border-left: 3px solid #5865f2;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: #36393f;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  margin: 0 20px;
+  border: 1px solid #202225;
+}
+
+.modal h3 {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.modal p {
+  color: #b9bbbe;
+  font-size: 14px;
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-button {
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-button:hover {
+  background: #484c52;
+}
+
+.confirm-delete-button {
+  background: #ed4245;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-delete-button:hover {
+  background: #c73c3f;
+}
+
+.confirm-delete-button:disabled,
+.cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Adjust chat item in selection mode */
+.chat-item-wrapper.selection-mode .chat-item {
+  width: calc(100% - 24px);
+  margin: 0;
+}

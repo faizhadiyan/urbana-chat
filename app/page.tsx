@@ -31,6 +31,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Generate or load user ID
   useEffect(() => {
@@ -128,8 +131,75 @@ export default function Home() {
   };
 
   const selectChat = (chatId: string) => {
-    setSelectedChatId(chatId);
-    setIsSidebarOpen(false);
+    if (isSelectionMode) {
+      toggleChatSelection(chatId);
+    } else {
+      setSelectedChatId(chatId);
+      setIsSidebarOpen(false);
+    }
+  };
+
+  const toggleChatSelection = (chatId: string) => {
+    const newSelected = new Set(selectedChats);
+    if (newSelected.has(chatId)) {
+      newSelected.delete(chatId);
+    } else {
+      newSelected.add(chatId);
+    }
+    setSelectedChats(newSelected);
+  };
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedChats(new Set());
+  };
+
+  const selectAllChats = () => {
+    if (selectedChats.size === filteredChats.length) {
+      setSelectedChats(new Set());
+    } else {
+      setSelectedChats(new Set(filteredChats.map(chat => chat.id)));
+    }
+  };
+
+  const deleteSelectedChats = async () => {
+    if (selectedChats.size === 0) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/web/chats`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId!,
+        },
+        body: JSON.stringify({ chatIds: Array.from(selectedChats) }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete chats');
+      
+      const data = await res.json();
+      if (data.success) {
+        // Remove deleted chats from state
+        setChats(prev => prev.filter(chat => !selectedChats.has(chat.id)));
+        
+        // If currently selected chat was deleted, clear selection
+        if (selectedChatId && selectedChats.has(selectedChatId)) {
+          setSelectedChatId(null);
+          setMessages([]);
+        }
+        
+        setSelectedChats(new Set());
+        setIsSelectionMode(false);
+        setShowDeleteConfirm(false);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Error deleting chats:', err);
+      setError('Failed to delete chats');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -245,13 +315,41 @@ export default function Home() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-box"
           />
-          <button
-            onClick={createNewChat}
-            disabled={loading}
-            className="new-chat-button"
-          >
-            {loading ? 'Creating...' : '+ New Chat'}
-          </button>
+          <div className="header-buttons">
+            <button
+              onClick={createNewChat}
+              disabled={loading}
+              className="new-chat-button"
+            >
+              {loading ? 'Creating...' : '+ New Chat'}
+            </button>
+            <button
+              onClick={toggleSelectionMode}
+              className={`select-button ${isSelectionMode ? 'active' : ''}`}
+            >
+              {isSelectionMode ? 'Cancel' : 'Select'}
+            </button>
+          </div>
+          
+          {isSelectionMode && (
+            <div className="selection-controls">
+              <button
+                onClick={selectAllChats}
+                className="select-all-button"
+              >
+                {selectedChats.size === filteredChats.length ? 'Deselect All' : 'Select All'}
+              </button>
+              {selectedChats.size > 0 && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="delete-button"
+                  disabled={loading}
+                >
+                  Delete ({selectedChats.size})
+                </button>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="chat-list">
@@ -266,23 +364,35 @@ export default function Home() {
             </div>
           ) : (
             filteredChats.map((chat) => (
-              <button
+              <div
                 key={chat.id}
-                onClick={() => selectChat(chat.id)}
-                className={`chat-item ${selectedChatId === chat.id ? 'active' : ''}`}
+                className={`chat-item-wrapper ${isSelectionMode ? 'selection-mode' : ''}`}
               >
-                <div className="chat-avatar">
-                  {(chat.name || chat.id.slice(0, 1)).charAt(0).toUpperCase()}
-                </div>
-                <div className="chat-info">
-                  <p className="chat-name">
-                    {chat.name || `Chat ${chat.id.slice(0, 8)}`}
-                  </p>
-                  <p className="chat-preview">
-                    {chat.lastMessage || 'No messages yet'}
-                  </p>
-                </div>
-              </button>
+                {isSelectionMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedChats.has(chat.id)}
+                    onChange={() => toggleChatSelection(chat.id)}
+                    className="chat-checkbox"
+                  />
+                )}
+                <button
+                  onClick={() => selectChat(chat.id)}
+                  className={`chat-item ${selectedChatId === chat.id && !isSelectionMode ? 'active' : ''} ${selectedChats.has(chat.id) && isSelectionMode ? 'selected' : ''}`}
+                >
+                  <div className="chat-avatar">
+                    {(chat.name || chat.id.slice(0, 1)).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="chat-info">
+                    <p className="chat-name">
+                      {chat.name || `Chat ${chat.id.slice(0, 8)}`}
+                    </p>
+                    <p className="chat-preview">
+                      {chat.lastMessage || 'No messages yet'}
+                    </p>
+                  </div>
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -391,6 +501,35 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Delete Chats</h3>
+            <p>
+              Are you sure you want to delete {selectedChats.size} chat{selectedChats.size > 1 ? 's' : ''}? 
+              This action cannot be undone.
+            </p>
+            <div className="modal-buttons">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="cancel-button"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteSelectedChats}
+                className="confirm-delete-button"
+                disabled={loading}
+              >
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
